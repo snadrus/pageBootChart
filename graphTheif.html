@@ -1,0 +1,208 @@
+<!DOCTYPE HTML>
+<html>
+<head><title>Page Boot Chart</title>
+<style>
+	.bar {
+		display: inline-block;
+		box-sizing: border-box;
+		-mox-box-sizing: border-box;
+		border: 1px solid black;
+		border-radius: 4px;
+		height: 25px;
+		background-color: lightblue;
+		overflow: hidden;
+		padding-top: 3px;
+		vertical-align: top;
+		transition: width 1s ease;
+		-webkit-transition: width 1s ease;
+	}
+	.bar:hover {
+		width: auto !important;
+		font-size: 15px;
+		height: auto;
+		transition: width 1s ease;
+		-webkit-transition: width 1s ease;
+	}
+
+	.itemClass {
+		height: 18px;
+		font-size: 8px;
+	}
+
+	/*TODO inline-block can't be shorter than the text height baseline
+		 so I've gotta use DIV and see if a previous cache div exists to append it to.*/
+	.cached {
+		background-color: green;
+		width: 24px;
+		height: 8px;
+		display: inline-block;
+		margin-right: 5px;
+		overflow: hidden;
+		white-space: nowrap;
+		vertical-align: top;
+	}
+	.cached:hover {
+		width: auto;
+		height: auto;
+	}
+	.noOverflow {
+		overflow: hidden;
+		white-space: nowrap;
+	}
+	.noOverflow:hover {
+		width: auto !important;
+		transition: width 1s ease;
+		white-space: normal;
+	}
+	.padLeft {
+		padding-left: 25px;
+		vertical-align: top;
+	}
+
+	#items {
+		position: relative;
+	}
+
+	.verticalLines {
+		position: absolute;
+		height: 100%;
+		box-sizing: border-box;
+		border-right: 1px dotted;
+	}
+</style>
+</head>
+<body>
+<p>This is the web page boot chart for <span id="location">__PAGE__</span></p>
+<p>(Hover to read overflows)</p>
+Page Stats: <div id="pageStats"></div>
+<div id="items"></div>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script>
+var unloadOrder = ["unloadEventStart", "unloadEventEnd"],
+	domOrder = ["domLoading", "domInteractive", "domContentLoadedEventStart", "domContentLoadedEventEnd", "domComplete", "loadEventStart", "loadEventEnd"],
+	dataOrder = ["navigationStart", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "connectStart", "secureConnectionStart", "connectEnd", "requestStart", "responseStart", "responseEnd"],
+	itemOrder = ["startTime", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "connectStart", "secureConnectionStart", "connectEnd", "requestStart", "responseStart", "responseEnd"];
+function niceName(key) {
+	switch (key) {
+		case "requestStart": return ["HTTP Wait", "lightsalmon"];
+		case "fetchStart": return ["Fetching (overall)", "lightgreen"];
+		case "domContentLoadedEventStart": return ["JS DomContentLoaded", "antiquewhite"];
+		case "domContentLoadedEventEnd": return ["Loading Resources", "lightgrey"];
+		case "responseStart": return ["Downloading", "lightcoral"];
+		case "loadEventStart": return ["JS Load Event", "antiquewhite"];
+		default:
+			return [key, "lightblue"];
+	}
+}
+
+function cleanLengths(smallest, order, data) {
+	var lastIndex = -1,
+		results = [];
+
+	for (var a = 0; a < order.length; a++){
+		if (data[order[a]]) {
+			var slid = data[order[a]] - smallest;
+			if (lastIndex !== -1) {
+				if (slid === results[results.length - 1][0]) {
+					results.pop(); // Trash zerp-length bars.
+				}
+				results.push([slid, lastIndex]);
+			} else {
+				results.push([slid]); // First value is just a starting index.
+			}
+			lastIndex = order[a];
+		}
+	}
+	return results; // [[startNumber], [endNumber,Name], [endNumber,Name]]
+}
+
+var renderScale = 5;
+function renderBar(barData, appendTarget){
+	if (barData.length > 1){
+		var barDiv = $("<div/>").appendTo(appendTarget);
+		$("<span/>")
+			.css("display","inline-block")
+			.width(barData[0][0] / renderScale)
+			.css("min-width", barData[0][0] / renderScale)
+			.appendTo(barDiv);
+		for (var a = 1; a < barData.length; a++) {
+			var nice = niceName(barData[a][1]);
+			$("<div/>")
+				.width((barData[a][0] - barData[a-1][0]) / renderScale)
+				.css("min-width", (barData[a][0] - barData[a-1][0]) / renderScale) // b/c width clears for overflow
+				.addClass("bar")
+				.text(nice[0])
+				.css("background-color", nice[1])
+				.appendTo(barDiv);
+		}
+		return barDiv;
+	}
+}
+
+function renderItemBar(barData, appendTarget, initiator, url) {
+	var barDiv = renderBar(barData, appendTarget);
+	if (barDiv) {
+		// TODO noOverflow needs a ::hover::after to show the full URL.
+		barDiv.find("span").text(url).addClass("noOverflow");
+		barDiv.find("div")
+			.addClass("itemClass");
+		$("<span>" + "Requested by " + initiator + "</span>")
+		.addClass("padLeft")
+		.appendTo(barDiv);
+	} else {
+		$("<span/>")
+			.addClass("cached")
+			.text("Cached. Requested by " + initiator + " for " + url)
+			.appendTo(appendTarget);
+	}
+}
+
+function renderDomMarks(lengths, appendTarget) {
+	for (var a=0; a < lengths.length; a++) {
+	$("<div/>")
+		.addClass("verticalLines")
+		.css("left", lengths[a][0] / renderScale)
+		.css("border-color", niceName(lengths[a][1])[1])
+		.appendTo(appendTarget);
+	}
+}
+
+function parseData(bigInput) {
+	var pageStatsDiv = $("<div/>"),
+		smallest = bigInput.t.navigationStart,
+		domLengths = cleanLengths(smallest, domOrder, bigInput.t);
+	 // loc
+	$("#location").html(bigInput.loc);
+	renderBar(cleanLengths(smallest, dataOrder, bigInput.t), pageStatsDiv);
+	renderBar(domLengths, pageStatsDiv);
+	renderBar(cleanLengths(smallest, unloadOrder, bigInput.t), pageStatsDiv);
+	pageStatsDiv.appendTo("#pageStats");
+
+	var domMarksDiv = $("<div/>")
+			.css("z-index", 1)
+			.height("100%");
+	renderDomMarks(domLengths, domMarksDiv);
+	domMarksDiv.appendTo("#items");
+
+	var itemsDiv = $("<div/>")
+			.css("z-index", 2)
+	for (var i = 0; i < bigInput.e.length; i++) {
+		var e = bigInput.e[i];
+		renderItemBar(
+			cleanLengths(0, itemOrder, e), 
+			itemsDiv, 
+			e.initiatorType,
+			e.name);
+	}
+	$("#items").append(itemsDiv);
+}
+
+$( function() {  // These 3 lines should stay in Theif
+	parseData(JSON.parse($("#dataInput").text()));
+});
+</script>
+
+<div id="dataInput" style="display: none;">
+{"t":{"loadEventEnd":1391324570748,"loadEventStart":1391324570738,"domComplete":1391324570737,"domContentLoadedEventEnd":1391324569938,"domContentLoadedEventStart":1391324569719,"domInteractive":1391324569719,"domLoading":1391324569179,"responseEnd":1391324569202,"responseStart":1391324569094,"requestStart":1391324565887,"secureConnectionStart":1391324565852,"connectEnd":1391324565887,"connectStart":1391324565820,"domainLookupEnd":1391324565820,"domainLookupStart":1391324565820,"fetchStart":1391324565819,"redirectEnd":0,"redirectStart":0,"unloadEventEnd":1391324569163,"unloadEventStart":1391324569163,"navigationStart":1391324565819},"e":[{"responseEnd":3485.4820000000473,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3446.382999999514,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":39.099000000533124,"startTime":3446.382999999514,"entryType":"resource","name":"https://cdn.optimizely.com/js/237572123.js"},{"responseEnd":3480.2890000000843,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3446.6510000002017,"redirectEnd":0,"redirectStart":0,"initiatorType":"link","duration":33.637999999882595,"startTime":3446.6510000002017,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/css/tabzilla-min.css"},{"responseEnd":3487.427999999454,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3446.839000000182,"redirectEnd":0,"redirectStart":0,"initiatorType":"link","duration":40.588999999272346,"startTime":3446.839000000182,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/mdn-min.css?build=b600f07"},{"responseEnd":3486.195999999836,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3446.9959999996718,"redirectEnd":0,"redirectStart":0,"initiatorType":"link","duration":39.20000000016444,"startTime":3446.9959999996718,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/redesign-main-min.css?build=b600f07"},{"responseEnd":3487.0649999993475,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3447.1549999998388,"redirectEnd":0,"redirectStart":0,"initiatorType":"link","duration":39.90999999950873,"startTime":3447.1549999998388,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/wiki-min.css?build=b600f07"},{"responseEnd":3486.704999999347,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3447.3140000000058,"redirectEnd":0,"redirectStart":0,"initiatorType":"link","duration":39.39099999934115,"startTime":3447.3140000000058,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/redesign-wiki-min.css?build=b600f07"},{"responseEnd":3570.0779999997394,"responseStart":3554.986000000099,"requestStart":3462.3039999996763,"secureConnectionStart":0,"connectEnd":3447.4730000001728,"connectStart":3447.4730000001728,"domainLookupEnd":3447.4730000001728,"domainLookupStart":3447.4730000001728,"fetchStart":3447.4730000001728,"redirectEnd":0,"redirectStart":0,"initiatorType":"link","duration":122.60499999956664,"startTime":3447.4730000001728,"entryType":"resource","name":"https://developer.mozilla.org/en-US/docs/Template:CustomCSS?raw=1"},{"responseEnd":3669.9469999994108,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3488.0709999997634,"redirectEnd":0,"redirectStart":0,"initiatorType":"xmlhttprequest","duration":181.87599999964732,"startTime":3488.0709999997634,"entryType":"resource","name":"http://66.228.34.50/js/chromeServerV45.js"},{"responseEnd":3557.579999999689,"responseStart":3554.476999999679,"requestStart":3499.1599999993923,"secureConnectionStart":0,"connectEnd":3491.9709999994666,"connectStart":3491.9709999994666,"domainLookupEnd":3491.9709999994666,"domainLookupStart":3491.9709999994666,"fetchStart":3491.9709999994666,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":65.6090000002223,"startTime":3491.9709999994666,"entryType":"resource","name":"https://developer.mozilla.org/en-US/jsi18n/build:b600f07"},{"responseEnd":3516.837000000123,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3492.1119999999064,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":24.725000000216824,"startTime":3492.1119999999064,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/js/redesign-main-min.js?build=b600f07"},{"responseEnd":3521.765999999843,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3492.250999999669,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":29.51500000017404,"startTime":3492.250999999669,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/en-US/tabzilla/tabzilla.js"},{"responseEnd":3519.1960000001927,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3492.3829999997906,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":26.8130000004021,"startTime":3492.3829999997906,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/js/wiki-min.js?build=b600f07"},{"responseEnd":3646.8269999995755,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3548.211999999694,"redirectEnd":0,"redirectStart":0,"initiatorType":"xmlhttprequest","duration":98.61499999988155,"startTime":3548.211999999694,"entryType":"resource","name":"https://237572123.log.optimizely.com/event?a=237572123&d=25134714&y=false&s237061344=none&s237321400=gc&s237335298=search&s237485170=false&n=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fdocs%2FWeb%2FAPI%2FWindow.open&u=oeu1374369587035r0.7829886595718563&wxhr=true&t=1391324569365&f="},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.2509999993563,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3611.2509999993563,"startTime":3611.2509999993563,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-ExtraBoldItalic-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.2679999996544,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3611.2679999996544,"startTime":3611.2679999996544,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-ExtraBoldItalic-webfont.ttf"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.2789999997403,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3611.2789999997403,"startTime":3611.2789999997403,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-ExtraBoldItalic-webfont.svg"},{"responseEnd":3747.500999999829,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.3439999999173,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":136.15699999991193,"startTime":3611.3439999999173,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Light-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.3559999994322,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3611.3559999994322,"startTime":3611.3559999994322,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Light-webfont.ttf"},{"responseEnd":3745.8049999995637,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.3869999999224,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":134.41799999964132,"startTime":3611.3869999999224,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Regular-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.3980000000083,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3611.3980000000083,"startTime":3611.3980000000083,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Regular-webfont.ttf"},{"responseEnd":3744.2510000000766,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.4269999998214,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":132.82400000025518,"startTime":3611.4269999998214,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Bold-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3611.436999999569,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3611.436999999569,"startTime":3611.436999999569,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Bold-webfont.ttf"},{"responseEnd":3793.1029999999737,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3615.002999999888,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":178.10000000008586,"startTime":3615.002999999888,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/210/=FirefoxChromeToolbarsDescription7a.gif"},{"responseEnd":3660.5069999995976,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3625.919000000067,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":34.58799999953044,"startTime":3625.919000000067,"entryType":"resource","name":"https://ssl.google-analytics.com/ga.js"},{"responseEnd":3746.758999999656,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.613000000041,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":68.14599999961501,"startTime":3678.613000000041,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/libs/font-awesome/font/fontawesome-webfont.woff?v=3.2.0"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.6309999997684,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.6309999997684,"startTime":3678.6309999997684,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/libs/font-awesome/font/fontawesome-webfont.ttf?v=3.2.0"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.6449999999604,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.6449999999604,"startTime":3678.6449999999604,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/libs/font-awesome/font/fontawesome-webfont.svg"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.672999999435,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.672999999435,"startTime":3678.672999999435,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Light-webfont.svg"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.6969999993744,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.6969999993744,"startTime":3678.6969999993744,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Regular-webfont.svg"},{"responseEnd":3766.4119999999457,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.7279999998646,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":87.68400000008114,"startTime":3678.7279999998646,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-LightItalic-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.737999999612,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.737999999612,"startTime":3678.737999999612,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-LightItalic-webfont.ttf"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.7469999999303,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.7469999999303,"startTime":3678.7469999999303,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-LightItalic-webfont.svg"},{"responseEnd":3742.9560000000492,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.7969999995767,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":64.15900000047259,"startTime":3678.7969999995767,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Semibold-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.805999999895,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.805999999895,"startTime":3678.805999999895,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Semibold-webfont.ttf"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.8159999996424,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.8159999996424,"startTime":3678.8159999996424,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Semibold-webfont.svg"},{"responseEnd":3749.010999999882,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.842999999688,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":70.1680000001943,"startTime":3678.842999999688,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Italic-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.8520000000062,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.8520000000062,"startTime":3678.8520000000062,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Italic-webfont.ttf"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.8619999997536,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.8619999997536,"startTime":3678.8619999997536,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-Italic-webfont.svg"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.874000000178,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.874000000178,"startTime":3678.874000000178,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-ExtraBold-webfont.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.882000000158,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.882000000158,"startTime":3678.882000000158,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-ExtraBold-webfont.ttf"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.8909999995667,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.8909999995667,"startTime":3678.8909999995667,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/fonts/OpenSans-ExtraBold-webfont.svg"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.9060000000973,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.9060000000973,"startTime":3678.9060000000973,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/redesign/fonts/ABTSmilk.woff"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.9129999997385,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.9129999997385,"startTime":3678.9129999997385,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/redesign/fonts/ABTSmilk.ttf"},{"responseEnd":0,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3678.922000000057,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":-3678.922000000057,"startTime":3678.922000000057,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/redesign/fonts/ABTSmilk.svg"},{"responseEnd":3803.461999999854,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3689.755999999761,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":113.7060000000929,"startTime":3689.755999999761,"entryType":"resource","name":"https://login.persona.org/include.js"},{"responseEnd":3739.8960000000443,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3700.8939999996073,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":39.002000000436965,"startTime":3700.8939999996073,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/redesign/img/header-background.png"},{"responseEnd":3741.4819999994506,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3702.7219999999943,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":38.75999999945634,"startTime":3702.7219999999943,"entryType":"resource","name":"https://mozorg.cdn.mozilla.net/media/img/tabzilla/tab.png"},{"responseEnd":3745.1139999993757,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3706.0080000001108,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":39.105999999264895,"startTime":3706.0080000001108,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/redesign/img/logo_sprite.svg?2014-01"},{"responseEnd":3911.545999999362,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3894.546999999875,"redirectEnd":0,"redirectStart":0,"initiatorType":"link","duration":16.99899999948684,"startTime":3894.546999999875,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/css/syntax-prism-min.css"},{"responseEnd":3914.608999999473,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":3895.0379999996585,"redirectEnd":0,"redirectStart":0,"initiatorType":"script","duration":19.570999999814376,"startTime":3895.0379999996585,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/js/syntax-prism-min.js"},{"responseEnd":4219.477999999981,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4150.402000000213,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":69.0759999997681,"startTime":4150.402000000213,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/260/=MSIE_ico.png"},{"responseEnd":4228.110000000015,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4151.227999999719,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":76.8820000002961,"startTime":4151.227999999719,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/785/=Ns6.gif"},{"responseEnd":4236.941999999544,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4151.6639999999825,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":85.27799999956187,"startTime":4151.6639999999825,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/281/=NS7_ico4.gif"},{"responseEnd":4233.95199999959,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4152.118999999402,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":81.8330000001879,"startTime":4152.118999999402,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/277/=Mozilla1_ico.png"},{"responseEnd":4237.333000000035,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4152.484999999615,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":84.84800000042014,"startTime":4152.484999999615,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/288/=Opera6.gif"},{"responseEnd":4234.403999999813,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4152.772999999797,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":81.63100000001577,"startTime":4152.772999999797,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/200/=FF1x.png"},{"responseEnd":4354.639999999563,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4330.845999999838,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":23.7939999997252,"startTime":4330.845999999838,"entryType":"resource","name":"https://ssl.google-analytics.com/__utm.gif?utmwv=5.4.6&utms=12&utmn=1649266177&utmhn=developer.mozilla.org&utme=8(6!Redesign)9(6!Yes)11(6!1)&utmcs=UTF-8&utmsr=1366x768&utmvp=1292x362&utmsc=24-bit&utmul=en-us&utmje=1&utmfl=12.0%20r0&utmdt=Window.open%20-%20Web%20API%20Interfaces%20%7C%20MDN&utmhid=1931772643&utmr=https%3A%2F%2Fwww.google.com%2F&utmp=%2Fen-US%2Fdocs%2FWeb%2FAPI%2FWindow.open&utmht=1391324570148&utmac=UA-36116321-5&utmcc=__utma%3D194606776.1517055288.1378962443.1391318238.1391321854.31%3B%2B__utmz%3D194606776.1391321854.31.31.utmcsr%3Dgoogle%7Cutmccn%3D(organic)%7Cutmcmd%3Dorganic%7Cutmctr%3D(not%2520provided)%3B&utmu=qCAAAAAAAAAAAAAAAAAAAAQ~"},{"responseEnd":4387.131999999838,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4370.691000000079,"redirectEnd":0,"redirectStart":0,"initiatorType":"css","duration":16.440999999758787,"startTime":4370.691000000079,"entryType":"resource","name":"https://developer.cdn.mozilla.net/media/redesign/img/blueprint-dark.png"},{"responseEnd":4521.319999999832,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4432.015999999749,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":89.30400000008376,"startTime":4432.015999999749,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/268/=MenuSystemCommands.png?size=webview"},{"responseEnd":4498.56600000021,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4432.028999999602,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":66.5370000006078,"startTime":4432.028999999602,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/780/=NewwinMSIE.gif"},{"responseEnd":4518.49299999958,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4432.391999999709,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":86.10099999987142,"startTime":4432.391999999709,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/782/=NewwindowYahoo.png"},{"responseEnd":4518.161999999393,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4434.401999999864,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":83.7599999995291,"startTime":4434.401999999864,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/811/=PopupImageSun.gif"},{"responseEnd":4514.095999999881,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4434.6379999997225,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":79.45800000015879,"startTime":4434.6379999997225,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/795/=Opennews_rb.gif"},{"responseEnd":4515.4670000001715,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4434.908999999607,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":80.55800000056479,"startTime":4434.908999999607,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/296/=Popup_requested_new_window.gif"},{"responseEnd":4665.5409999993935,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4577.135999999882,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":88.40499999951135,"startTime":4577.135999999882,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/809/=Pop-up-launcher.gif"},{"responseEnd":4680.663000000095,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4593.689999999697,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":86.97300000039832,"startTime":4593.689999999697,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/810/=Popicon_1.gif"},{"responseEnd":4680.172999999741,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4594.1729999995005,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":86.0000000002401,"startTime":4594.1729999995005,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/417/=Webstyleguide_com_newwind.gif"},{"responseEnd":4680.405000000064,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4594.422999999551,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":85.98200000051293,"startTime":4594.422999999551,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/779/=New.gif"},{"responseEnd":4681.220999999823,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4596.230999999534,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":84.990000000289,"startTime":4596.230999999534,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/15/=AIS_NewWindowIcon.png"},{"responseEnd":4680.943999999727,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4597.254999999677,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":83.68900000004942,"startTime":4597.254999999677,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/419/=WillCreateOrRecycleNewWindow.gif"},{"responseEnd":4832.368999999744,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4747.828999999911,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":84.53999999983353,"startTime":4747.828999999911,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/170/=Cursor_newwindowSergeySokoloff.png"},{"responseEnd":4829.681000000164,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4748.232999999345,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":81.44800000081887,"startTime":4748.232999999345,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/169/=Cursor_LinkNewWindowTargetBlank.png"},{"responseEnd":4828.397999999652,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4754.925000000185,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":73.47299999946699,"startTime":4754.925000000185,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/287/=OpenRequestedPopup.png"},{"responseEnd":4918.001000000004,"responseStart":0,"requestStart":0,"secureConnectionStart":0,"connectEnd":0,"connectStart":0,"domainLookupEnd":0,"domainLookupStart":0,"fetchStart":4756.671999999526,"redirectEnd":0,"redirectStart":0,"initiatorType":"img","duration":161.32900000047812,"startTime":4756.671999999526,"entryType":"resource","name":"https://developer.mozilla.org/@api/deki/files/212/=FirefoxInnerVsOuterHeight.png"}],"loc":"https://developer.mozilla.org/en-US/docs/Web/API/Window.open"}</div>
+</body>
+</html>

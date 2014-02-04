@@ -1,0 +1,128 @@
+<html>
+<head>
+	<title>Page Boot Chart</title>
+	<style>
+	kbd {
+		padding: 0.1em 0.6em;
+		border: 1px solid #ccc;
+		font-size: 11px;
+		font-family: Arial,Helvetica,sans-serif;
+		background-color: #f7f7f7;
+		color: #333;
+		-moz-box-shadow: 0 1px 0px rgba(0, 0, 0, 0.2),0 0 0 2px #ffffff inset;
+		-webkit-box-shadow: 0 1px 0px rgba(0, 0, 0, 0.2),0 0 0 2px #ffffff inset;
+		box-shadow: 0 1px 0px rgba(0, 0, 0, 0.2),0 0 0 2px #ffffff inset;
+		-moz-border-radius: 3px;
+		-webkit-border-radius: 3px;
+		border-radius: 3px;
+		display: inline-block;
+		margin: 0 0.1em;
+		text-shadow: 0 1px 0 #fff;
+		line-height: 1.4;
+		white-space: nowrap;
+	}
+
+	body {
+		background-color: #eee;
+	}
+
+	.bodyBox {
+		margin: 0 auto;
+		padding: 0 10px;
+		width: 70%;
+		background-color: white;
+	}
+
+	h1 {
+		text-align: center;
+	}
+
+	.lessImportant {
+		padding-left: 20px;
+		font-size: 12px;
+	}
+
+	li {
+		padding-top: 5px;
+	}
+
+	.q:before{
+		content: "Q: ";
+		color: red;
+		font-size: 18px;
+	}
+
+	.a {
+		padding-bottom: 5px;
+	}
+	.a:before {
+		content: "A: ";
+		color: blue;
+		font-size: 18px;
+	}
+	</style>
+
+	<link rel="icon" type="image/jpg" href="pageBoot.jpg" />
+</head>
+<body><div>
+	<div class="bodyBox">
+		<img src="pageBoot.jpg" style="float: left"/>
+		<h1>Understand Website Loading Slowness</h1>
+		<p>
+		<div style="float:right; width: 400px;">
+
+			This lets a web developer:
+			<ul>
+			<li>Optimize file load patterns.</li>
+			<li>Find undexpected delays.</li>
+			<li>Track performance progress.</li>
+			<li>... Including when JS frameworks build it after onLoad.</li>
+			</ul>
+			<h5>Questions:</h5>
+			<div class="q">Why only newer Chrome & IE?</div>
+			<div class="a">They implement performance timeline.</div>
+			<div class="q">Why exactly 150 entries, with early ones missing?</div>
+			<div class="a">Fix it by adding at onload the Javascript (for Chrome): performance.webkitSetResourceTimingBufferSize(10000) </div>
+			<div class="q">Some resources only show Fetch, others have more data</div>
+			<div class="a">Other domain servers should set the header of Timing-Allow-Origin: *</div>
+			<div class="q">I have comments, found/fixed bugs, or want this in-house.</div>
+			<div class="a"><a href="http://www.Github.com/snadrus/pageBootSpeed">Github.com/snadrus/pageBootSpeed</a></div>
+		</div>
+		<br>
+		<h3>See this graph now:</h3>
+		<ol>
+			<li>In Chrome or IE...
+			</li>
+			<li>Drag this to your bookmarks bar: <a href="javascript:{(function(){pageBootWindow=open('http://pagebootchart.com/graph.html','pbc');msg=JSON.stringify({t:performance.timing,e:performance.getEntries(),loc:window.location.toString()});window.addEventListener('message',function(evt){if(evt.data==='pageBootChart_wants_data'){pageBootWindow.postMessage(msg,'*')}},false);})()}" title="Page Boot Chart" icon="pageBoot.jpg"><img width="32" src="pageBoot.jpg"/>Page Boot Chart</a>
+				<div class="lessImportant">
+			    Show bookmarks bar with 
+			    <ul>
+			    	<li>Chrome: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd></li>
+			    	<li>IE: <kbd>Ctrl</kbd> + <kbd>i</kbd></li>
+			    </ul>
+				</div>
+			</li>
+			<li>Reload your page in the browser.
+				<div class="lessImportant">Reload without cache by:
+				<ul>
+					<li>Clearing Cache or</li>
+					<li>Private browsing mode</li>
+				</ul>
+				</div>
+			</li>
+			<li>
+				<u>When loaded</u> click the bookmark.
+			</li>
+		</ol>
+
+		<br>
+		<h5>Coming Soon:</h5>
+		<ul>
+			<li>Save the graph</li>
+			<li>Better graphics</li>
+			<li>Your idea here</li>
+		</ul>
+	</div>
+</div>
+</body>
+</html>

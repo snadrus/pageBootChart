@@ -1,0 +1,217 @@
+<!DOCTYPE HTML>
+<html>
+<head><title>Page Boot Chart</title>
+	<style>
+	.bar {
+		display: inline-block;
+		box-sizing: border-box;
+		-mox-box-sizing: border-box;
+		border: 1px solid black;
+		border-radius: 4px;
+		height: 25px;
+		background-color: lightblue;
+		overflow: hidden;
+		padding-top: 3px;
+		vertical-align: top;
+		transition: width 1s ease;
+		-webkit-transition: width 1s ease;
+	}
+	.bar:hover {
+		width: auto !important;
+		font-size: 15px;
+		height: auto;
+		transition: width 1s ease;
+		-webkit-transition: width 1s ease;
+	}
+
+	.itemClass {
+		height: 18px;
+		font-size: 8px;
+	}
+
+	/*TODO inline-block can't be shorter than the text height baseline
+		 so I've gotta use DIV and see if a previous cache div exists to append it to.*/
+	.cached {
+		background-color: green;
+		width: 24px;
+		height: 8px;
+		display: inline-block;
+		margin-right: 5px;
+		overflow: hidden;
+		white-space: nowrap;
+		vertical-align: top;
+	}
+	.cached:hover {
+		width: auto;
+		height: auto;
+	}
+	.noOverflow {
+		overflow: hidden;
+		white-space: nowrap;
+	}
+	.noOverflow:hover {
+		width: auto !important;
+		transition: width 1s ease;
+		white-space: normal;
+	}
+	.postText {
+		padding-left: 25px;
+		vertical-align: top;
+		width: 500px;
+	}
+
+	#items {
+		position: relative;
+	}
+
+	.verticalLines {
+		position: absolute;
+		height: 100%;
+		box-sizing: border-box;
+		border-right: 1px dotted;
+	}
+</style>
+	<link rel="icon" type="image/jpg" href="pageBoot.jpg" />
+</head>
+<body>
+<p>This is the web page boot chart for <span id="location">__PAGE__</span></p>
+<p>(Hover to read overflows)</p>
+Page Stats: <div id="pageStats"></div>
+<div id="items"></div>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script>
+window.opener.postMessage("pageBootChart_wants_data", "*");
+function listenerFunction(evt) {
+	parseData(JSON.parse(evt.data));
+	window.removeEventListener("message", listenerFunction);
+}
+window.addEventListener("message", listenerFunction, false);
+
+var unloadOrder = ["unloadEventStart", "unloadEventEnd"],
+	domOrder = ["domLoading", "domInteractive", "domContentLoadedEventStart", "domContentLoadedEventEnd", "domComplete", "loadEventStart", "loadEventEnd"],
+	dataOrder = ["navigationStart", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "connectStart", "secureConnectionStart", "connectEnd", "requestStart", "responseStart", "responseEnd"],
+	itemOrder = ["startTime", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "connectStart", "secureConnectionStart", "connectEnd", "requestStart", "responseStart", "responseEnd"];
+
+function niceName(key) {
+	switch (key) {
+		case "requestStart": return ["HTTP Wait", "lightsalmon"];
+		case "fetchStart": return ["Fetching (overall)", "lightgreen"];
+		case "domContentLoadedEventStart": return ["JS DomContentLoaded", "antiquewhite"];
+		case "domContentLoadedEventEnd": return ["Loading Resources", "lightgrey"];
+		case "responseStart": return ["Downloading", "lightcoral"];
+		case "loadEventStart": return ["JS Load Event", "antiquewhite"];
+		default:
+			return [key, "lightblue"];
+	}
+}
+
+function cleanLengths(smallest, order, data) {
+	var lastIndex = -1,
+		results = [];
+
+	for (var a = 0; a < order.length; a++){
+		if (data[order[a]]) {
+			var slid = data[order[a]] - smallest;
+			if (lastIndex !== -1) {
+				if (slid === results[results.length - 1][0]) {
+					results.pop(); // Trash zerp-length bars.
+				}
+				results.push([slid, lastIndex]);
+			} else {
+				results.push([slid]); // First value is just a starting index.
+			}
+			lastIndex = order[a];
+		}
+	}
+	return results; // [[startNumber], [endNumber,Name], [endNumber,Name]]
+}
+
+var renderScale = 5;
+function renderBar(barData, appendTarget){
+	if (barData.length > 1){
+		var barDiv = $("<div/>").appendTo(appendTarget);
+		$("<span/>")
+			.css("display","inline-block")
+			.width(barData[0][0] / renderScale)
+			.css("min-width", barData[0][0] / renderScale)
+			.appendTo(barDiv);
+		for (var a = 1; a < barData.length; a++) {
+			var nice = niceName(barData[a][1]),
+				msTaken = barData[a][0] - barData[a-1][0];
+			$("<div/>")
+				.width(msTaken / renderScale)
+				.css("min-width", msTaken / renderScale) // b/c width clears for overflow
+				.addClass("bar")
+				.text(nice[0] + " " + (msTaken|0) + "ms.")
+				.css("background-color", nice[1])
+				.appendTo(barDiv);
+		}
+		return barDiv;
+	}
+}
+
+function renderItemBar(barData, appendTarget, initiator, url) {
+	var barDiv = renderBar(barData, appendTarget);
+	if (barDiv) {
+		// TODO noOverflow needs a ::hover::after to show the full URL.
+		var span = barDiv.find("span"),
+			inFront = span.width() > 400; // Room for a URL in front?
+		if (inFront) {
+			span.text(url).addClass("noOverflow");
+		}
+		barDiv.find("div")
+			.addClass("itemClass");
+		$("<span>" + (!inFront ? url + " " : "") + "Requested by " + initiator + "</span>")
+		.addClass("postText")
+		.addClass("noOverflow")
+		.appendTo(barDiv);
+	} else {
+		$("<span/>")
+			.addClass("cached")
+			.text("Cached. Requested by " + initiator + " for " + url)
+			.appendTo(appendTarget);
+	}
+}
+
+function renderDomMarks(lengths, appendTarget) {
+	for (var a=0; a < lengths.length; a++) {
+	$("<div/>")
+		.addClass("verticalLines")
+		.css("left", lengths[a][0] / renderScale)
+		.css("border-color", niceName(lengths[a][1])[1])
+		.appendTo(appendTarget);
+	}
+}
+
+function parseData(bigInput) {
+	var pageStatsDiv = $("<div/>"),
+		smallest = bigInput.t.navigationStart,
+		domLengths = cleanLengths(smallest, domOrder, bigInput.t);
+	 // loc
+	$("#location").html(bigInput.loc);
+	renderBar(cleanLengths(smallest, dataOrder, bigInput.t), pageStatsDiv);
+	renderBar(domLengths, pageStatsDiv);
+	renderBar(cleanLengths(smallest, unloadOrder, bigInput.t), pageStatsDiv);
+	pageStatsDiv.appendTo("#pageStats");
+
+	var domMarksDiv = $("<div/>")
+			.css("z-index", 1)
+			.height("100%");
+	renderDomMarks(domLengths, domMarksDiv);
+	domMarksDiv.appendTo("#items");
+
+	var itemsDiv = $("<div/>")
+			.css("z-index", 2)
+	for (var i = 0; i < bigInput.e.length; i++) {
+		var e = bigInput.e[i];
+		renderItemBar(
+			cleanLengths(0, itemOrder, e), 
+			itemsDiv, 
+			e.initiatorType,
+			e.name);
+	}
+	$("#items").append(itemsDiv);
+}
+</script>
+</body>
+</html>

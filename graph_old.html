@@ -1,0 +1,36 @@
+<!DOCTYPE HTML>
+<html>
+<head><title>Page Boot Chart</title>
+</head>
+<body>
+<p>This is the web page boot chart for <span id="location">__PAGE__LOADING__</span></p>
+Page Stats: <div id="pageStats"></div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script>
+window.addEventListener("message", function(evt) {
+	parseData(JSON.parse(evt.data));
+}, false);
+
+function parseData(bigInput) {
+	var pageStatsDiv = "";
+	 // loc
+	$("#location").html(bigInput.loc);
+
+	for (var a in bigInput.t) {
+		pageStatsDiv += "<div>" + a + ": " + bigInput.t[a] + "</div>";
+	}
+
+	$("<div/>")
+		.html(pageStatsDiv)
+		.appendTo("#pageStats");
+
+	for (var e = 0; e < bigInput.e; e++) {
+
+	}
+}
+
+window.opener.postMessage("pageBootChart_wants_data", "*");
+</script>
+</body>
+</html>

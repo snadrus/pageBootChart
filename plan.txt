@@ -1,0 +1,17 @@
+plan:
+
+key off navigationStart
+
+boxed: 
+- unloadEventstart, unloadEventEnd
+- dom... and load...
+- all else
+
+
+- ignore zero entries
+- domLoading can come before responseEnd
+
+["unloadEventStart", "unloadEventEnd", "domLoading", "domInteractive", "domContentLoadedEventStart", "domContentLoadedEventEnd", "domComplete", "loadEventStart", "loadEventEnd"]
+
+- fetchStart begins cache lookup
+["navigationStart", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "connectStart", "secureConnectionStart", "connectEnd", "requestStart", "responseStart", "responseEnd"]

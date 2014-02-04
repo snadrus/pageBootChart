@@ -15,7 +15,6 @@
 		vertical-align: top;
 		transition: width 1s ease;
 		-webkit-transition: width 1s ease;
-		white-space: nowrap;
 	}
 	.bar:hover {
 		width: auto !important;
@@ -132,7 +131,8 @@ function cleanLengths(smallest, order, data) {
 var renderScale = 5;
 function renderBar(barData, appendTarget){
 	if (barData.length > 1){
-		var barDiv = $("<div/>").appendTo(appendTarget);
+		var barDiv = $("<div/>")
+			.appendTo(appendTarget);
 		$("<span/>")
 			.css("display","inline-block")
 			.width(barData[0][0] / renderScale)
@@ -155,6 +155,7 @@ function renderBar(barData, appendTarget){
 
 function renderItemBar(barData, appendTarget, initiator, url) {
 	var barDiv = renderBar(barData, appendTarget);
+		barDiv.css("white-space", "nowrap");
 	if (barDiv) {
 		// TODO noOverflow needs a ::hover::after to show the full URL.
 		var span = barDiv.find("span"),

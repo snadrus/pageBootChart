@@ -158,8 +158,8 @@ function renderBar(barData, appendTarget){
 
 function renderItemBar(barData, appendTarget, initiator, url) {
 	var barDiv = renderBar(barData, appendTarget);
-		barDiv.css("white-space", "nowrap");
 	if (barDiv) {
+		barDiv.css("white-space", "nowrap");
 		// TODO noOverflow needs a ::hover::after to show the full URL.
 		var span = barDiv.find("span"),
 			inFront = span.width() > 400; // Room for a URL in front?

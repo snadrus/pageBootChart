@@ -101,6 +101,7 @@ function niceName(key) {
 	switch (key) {
 		case "requestStart": return ["HTTP Wait", "lightsalmon"];
 		case "fetchStart": return ["Fetching (overall)", "lightgreen"];
+		case "connectEnd": return ["TCP wait or Too many to domain wait", "yellow"];
 		case "domContentLoadedEventStart": return ["JS DomContentLoaded", "antiquewhite"];
 		case "domContentLoadedEventEnd": return ["Loading Resources", "lightgrey"];
 		case "responseStart": return ["Downloading", "lightcoral"];

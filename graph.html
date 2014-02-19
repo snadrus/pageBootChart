@@ -84,7 +84,10 @@ Page Stats: <div id="pageStats"></div>
 <script>
 window.opener.postMessage("pageBootChart_wants_data", "*");
 function listenerFunction(evt) {
-	parseData(JSON.parse(evt.data));
+	var objectData = JSON.parse(evt.data);
+	$(function(){
+		parseData(objectData);
+	})
 	window.removeEventListener("message", listenerFunction);
 }
 window.addEventListener("message", listenerFunction, false);

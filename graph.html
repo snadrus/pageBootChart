@@ -72,12 +72,21 @@
 		box-sizing: border-box;
 		border-right: 1px dotted;
 	}
+
+	#time {
+		position: absolute;
+		background-color: lightgreen;
+		top: 0;
+		right: 0;
+		width: 80px;
+	}
 </style>
 	<link rel="icon" type="image/jpg" href="pageBoot.jpg" />
 </head>
 <body>
 <p>This is the web page boot chart for <span id="location">__PAGE__</span></p>
 <p>(Hover to read overflows)</p>
+<div id="time">At: <span id="mouseTimestamp"></span>ms</div>
 Page Stats: <div id="pageStats"></div>
 <div id="items"></div>
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
@@ -220,6 +229,15 @@ function parseData(bigInput) {
 	}
 	$("#items").append(itemsDiv);
 }
+
+$(function(){
+	console.log("a");
+	var mousePosOutput = $("#mouseTimestamp"),
+		offset = $("#pageStats").offset().left;
+	$("body").on("mousemove", function(evt){
+		mousePosOutput.text(0| (Math.max(0, evt.pageX - offset) * renderScale));
+	});
+});
 </script>
 </body>
 </html>

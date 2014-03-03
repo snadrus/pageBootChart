@@ -160,6 +160,7 @@ function renderBar(barData, appendTarget){
 				.addClass("bar")
 				.text(nice[0] + " " + (msTaken|0) + "ms.")
 				.css("background-color", nice[1])
+				.attr("title", "Start At: " + (barData[a][0] |0) + "ms")
 				.appendTo(barDiv);
 		}
 		return barDiv;

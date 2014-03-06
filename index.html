@@ -41,7 +41,7 @@
 		padding-left: 20px;
 		font-size: 12px;
 	}
-
+    
 	li {
 		padding-top: 5px;
 	}
@@ -81,7 +81,7 @@
 			<h5>Questions:</h5>
 			<div class="q">Why only newer Chrome & IE?</div>
 			<div class="a">They implement W3C's ResourceTiming API.</div>
-			<div class="q">Why exactly 150 entries, with early ones missing?</div>
+			<div class="q">Why exactly 150 entries, with later ones missing?</div>
 			<div class="a">Fix it by adding at onload the Javascript (for Chrome): performance.webkitSetResourceTimingBufferSize(10000) </div>
 			<div class="q">Some resources only show Fetch, others have more data</div>
 			<div class="a">Other domain servers should set the header of Timing-Allow-Origin: *</div>
